@@ -4,7 +4,7 @@ from aws_cdk import core as cdk
 # the CDK's core module.  The following line also imports it as `core` for use
 # with examples from the CDK Developer's Guide, which are in the process of
 # being updated to use `cdk`.  You may delete this import if you don't need it.
-from aws_cdk import core
+from aws_cdk import core, aws_apigateway, aws_lambda, aws_kms, aws_iam, aws_dynamodb
 
 
 class BenzaitenAwsApiServerStack(cdk.Stack):
@@ -12,4 +12,77 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # The code that defines your stack goes here
+        # API Gateway definition
+        api = aws_apigateway.RestApi(
+            self,
+            'benzaiten-api',
+            rest_api_name='Benzaiten API',
+            description='Benzaiten Rest API'
+        )
+
+        kms = aws_kms.Key(
+            self,
+            'benzaiten-kms'
+        )
+
+        api_keys_db = aws_dynamodb.Table(
+            self,
+            'benzaiten-apikey-table',
+            partition_key=aws_dynamodb.Attribute(
+                'api_key',
+                aws_dynamodb.AttributeType.STRING
+            ),
+            table_name='benzaiten_api_keys',
+            encryption=aws_dynamodb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=kms,
+        )
+
+        # Auth lambda
+        auth_lambda_role = aws_iam.Role(
+            self,
+            'benzaiten-auth-role',
+            assumed_by=aws_iam.ServicePrincipal('lambda.awsamazon.com'),
+            description='Role for benzaiten auth lambda',
+            managed_policies=aws_iam.ManagedPolicy.from_aws_managed_policy_name(
+                'AWSLambdaBasicExecutionRole '),
+            inline_policies={
+                'read_dynamo': aws_iam.PolicyDocument(statements=[
+                    aws_iam.PolicyStatement(
+                        actions=[
+                            'dynamodb:GetItem',
+                        ],
+                        resources=[
+                            api_keys_db.table_arn
+                        ]
+                    )
+                ]),
+                'kms': aws_iam.PolicyDocument(statements=[
+                    aws_iam.PolicyStatement(
+                        actions=[
+                            "kms:Decrypt",
+                            "kms:GenerateDataKeyWithoutPlaintext",
+                            "kms:GenerateDataKeyPairWithoutPlaintext",
+                            "kms:GenerateDataKeyPair",
+                            "kms:ReEncryptFrom",
+                            "kms:Encrypt",
+                            "kms:ReEncryptTo",
+                            "kms:GenerateDataKey",
+                            "kms:DescribeKey",
+                        ],
+                        resources=[
+                            kms.key_arn
+                        ]
+                    )
+                ])
+            }
+        )
+
+        auth_lambda = aws_lambda.Function(
+            self,
+            'benzaiten-auth-lambda',
+            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            code=aws_lambda.Code.from_asset('lambda/auth/'),
+            handler='app.lambda_handler',
+            environment_encryption=kms,
+            role=auth_lambda_role
+        )

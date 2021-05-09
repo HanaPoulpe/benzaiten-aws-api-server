@@ -1,1 +1,4 @@
 -e .
+boto3
+botocore
+pycryptodome
