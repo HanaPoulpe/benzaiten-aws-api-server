@@ -9,7 +9,7 @@ setuptools.setup(
     name="benzaiten_aws_api_server",
     version="0.0.1",
 
-    description="An empty CDK Python app",
+    description="Benzaiten API Server for AWS",
     long_description=long_description,
     long_description_content_type="text/markdown",
 
@@ -22,17 +22,14 @@ setuptools.setup(
         "aws-cdk.core==1.100.0",
     ],
 
-    python_requires=">=3.6",
+    python_requires=">=3.8",
 
     classifiers=[
         "Development Status :: 4 - Beta",
 
         "Intended Audience :: Developers",
 
-        "Programming Language :: JavaScript",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
 
         "Topic :: Software Development :: Code Generators",
