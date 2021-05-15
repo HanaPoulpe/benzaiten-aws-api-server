@@ -43,17 +43,11 @@ DYNAMODB_TABLE = os.getenv('DYNAMODB_TABLE', 'no_table')
 #############
 
 
-def lambda_handler(event, context) -> dict:
+def lambda_handler(key: str, signature: str, location: str, method: str) -> dict:
     """
-    Lambda Handler
+    Checks
+    """
 
-    :return dict:
-    {
-        statusCode: int,
-        headers: dict,
-        body: text
-    }
-    """
     # Logger
     logging.basicConfig(
         format='%(asctime)s::%(levelname)s::%(filename)s.%(funcName)s(%(lineno)s)::%(message)s')

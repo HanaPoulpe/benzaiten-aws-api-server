@@ -1,0 +1,23 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-version:
+      nodejs: 12
+      python: 3.8
+    commands:
+      - echo "Installing cdk..."
+      - npm install -g aws-cdk
+      - echo "Preparing python..."
+      - python -m ensurepip --upgrade
+      - python setup.py install
+
+  pre-build:
+    commands:
+      - echo "Unit testing..."
+      - coverage run --source=src -m unittest discover tests
+      - coverage report -m
+
+  build:
+    commands:
+      - cdk

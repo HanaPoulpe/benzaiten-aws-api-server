@@ -29,8 +29,8 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             self,
             'benzaiten-apikey-table',
             partition_key=aws_dynamodb.Attribute(
-                'api_key',
-                aws_dynamodb.AttributeType.STRING
+                name='api_key',
+                type=aws_dynamodb.AttributeType.STRING
             ),
             table_name='benzaiten_api_keys',
             encryption=aws_dynamodb.TableEncryption.CUSTOMER_MANAGED,
@@ -43,8 +43,9 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             'benzaiten-auth-role',
             assumed_by=aws_iam.ServicePrincipal('lambda.awsamazon.com'),
             description='Role for benzaiten auth lambda',
-            managed_policies=aws_iam.ManagedPolicy.from_aws_managed_policy_name(
-                'AWSLambdaBasicExecutionRole '),
+            managed_policies=[
+                aws_iam.ManagedPolicy.from_aws_managed_policy_name('AWSLambdaBasicExecutionRole ')
+            ],
             inline_policies={
                 'read_dynamo': aws_iam.PolicyDocument(statements=[
                     aws_iam.PolicyStatement(
@@ -81,8 +82,10 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             self,
             'benzaiten-auth-lambda',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            code=aws_lambda.Code.from_asset('lambda/auth/'),
+            code=aws_lambda.Code.from_asset('src/lambda/auth/'),
             handler='app.lambda_handler',
             environment_encryption=kms,
             role=auth_lambda_role
         )
+
+        api.
