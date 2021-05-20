@@ -38,14 +38,24 @@ import datetime
 import logging
 import os
 
+import response
+
 # Constants #
 DYNAMODB_TABLE = os.getenv('DYNAMODB_TABLE', 'no_table')
 #############
 
 
-def lambda_handler(key: str, signature: str, location: str, method: str) -> dict:
+def is_allowed(key: str, message: str, signature: str, location: str, method: str) \
+        -> response.BaseResponse:
     """
-    Checks
+    Checks if parameters allows the request to be processed any further
+
+    :param key: Client API Key
+    :param message: Request complete message as str
+    :param signature: Message signature
+    :param location: Location ID
+    :param method: HTTP Method
+    :return: HTTP Response
     """
 
     # Logger
@@ -53,69 +63,41 @@ def lambda_handler(key: str, signature: str, location: str, method: str) -> dict
         format='%(asctime)s::%(levelname)s::%(filename)s.%(funcName)s(%(lineno)s)::%(message)s')
     logger = logging.getLogger()
 
-    # Check event
-    if len(event) != 5:
-        logger.error('Invalid argument count')
-        return {
-            'statusCode': 400,
-            'headers': {},
-            'body': 'Invalid request'
-        }
-
-    try:
-        assert len(event) == 5
-
-        for p in ['key', 'signature', 'location', 'message', 'method']:
-            assert isinstance(event[p], str)
-    except (KeyError, AssertionError) as e:
-        if isinstance(e, KeyError):
-            logger.error(f"Missing key: {str(e)}")
-        elif isinstance(e, AssertionError):
-            logger.error('Invalid argument type')
-
-        return {
-            'statusCode': 400,
-            'headers': {},
-            'body': 'Invalid request'
-        }
-
-    if event['signature'] == 'earlgrey':
+    if signature == 'earlgrey':
         logger.info('Teapot')
-        return {
-            'statusCode': 418,
-            'headers': {},
-            'body': 'I\'m a teapot'
-        }
-    method = event['method']
+        return response.BaseResponse(
+            statusCode=418,
+            headers={},
+            body='I\'m a teapot'
+        )
     if method not in ['PUT', 'GET']:
-        logger.error(f"Invalid method: {event['method']}")
-        return {
-            'statusCode': 405,
-            'headers': {},
-            'body': 'Method not accepted'
-        }
+        logger.error(f"Invalid method: {method}")
+        return response.BaseResponse(
+            statusCode=405,
+            headers={},
+            body='Method not accepted'
+        )
 
     # Access API Key data
     dynamo_client = boto3.client('dynamod_db')
     now = datetime.datetime.utcnow()
-    location_attibute = ''
+    location_attribute = ''
     if method == 'GET':
-        location_attibute = 'location_get'
+        location_attribute = 'location_get'
     elif method == 'PUT':
-        location_attibute = 'location_put'
-    api_key = event['key']
+        location_attribute = 'location_put'
 
     try:
-        response = dynamo_client.get_item(
+        resp = dynamo_client.get_item(
             TableName=DYNAMODB_TABLE,
             Key={
                 'api_key': {
-                    'S': api_key
+                    'S': key
                 }
             },
             ProjectionExpression=', '.join([
                 'pub_key',
-                location_attibute,
+                location_attribute,
                 'expiration_date_utc'
             ]),
             ReturnConsumedCapacity='TOTAL'
@@ -127,28 +109,28 @@ def lambda_handler(key: str, signature: str, location: str, method: str) -> dict
 
         if error in ['ProvisionedThroughputExceededException',
                      'RequestLimitExceeded']:
-            return {
-                'statusCode': 503,
-                'headers': {},
-                'body': 'Service Unavailable'
-            }
+            return response.BaseResponse(
+                statusCode=503,
+                headers={},
+                body='Service Unavailable'
+            )
         elif error in ['UnauthorizedOperation']:
-            return {
-                'statusCode': 511,
-                'headers': {},
-                'body': 'Network authentication required '
-            }
+            return response.BaseResponse(
+                statusCode=511,
+                headers={},
+                body='Network authentication required '
+            )
 
-        return {
-            'statusCode': 500,
-            'headers': {},
-            'body': 'Internal Server Error'
-        }
+        return response.BaseResponse(
+            statusCode=500,
+            headers={},
+            body='Internal Server Error'
+        )
 
-    if 'Item' in response:
+    if 'Item' in resp:
         try:
             # If response is not empty
-            item = response['Item']
+            item = resp['Item']
 
             if 'expiration_date_utc' in item:
                 # Test expiration date
@@ -157,61 +139,61 @@ def lambda_handler(key: str, signature: str, location: str, method: str) -> dict
                     '%Y-%d-%m %H:%M:%S'
                 )
                 if expiration_date < now:
-                    return {
-                        'statusCode': 403,
-                        'headers': {},
-                        'body': 'Expired API Key'
-                    }
+                    return response.BaseResponse(
+                        statusCode=403,
+                        headers={},
+                        body='Expired API Key'
+                    )
 
             # Test location
-            if 'S' in item[location_attibute]:
-                if item[location_attibute]['S'] != '*':
-                    logger.error(f"Invalid location string for {api_key}")
-                    return {
-                        'statusCode': 403,
-                        'headers': {},
-                        'body': 'Forbidden'
-                    }
-            elif event['location'] not in item[location_attibute]['SS']:
-                return {
-                    'statusCode': 403,
-                    'header': {},
-                    'body': 'Forbidden'
-                }
+            if 'S' in item[location_attribute]:
+                if item[location_attribute]['S'] != '*':
+                    logger.error(f"Invalid location string for {key}")
+                    return response.BaseResponse(
+                        statusCode=403,
+                        headers={},
+                        body='Forbidden'
+                    )
+            elif location not in item[location_attribute]['SS']:
+                return response.BaseResponse(
+                    statusCode=403,
+                    headers={},
+                    body='Forbidden'
+                )
 
             # Test message
-            digest = SHA512.new(event['message'])
+            digest = SHA512.new(message.encode('utf-8'))
             pub_key = RSA.importKey(item['pub_key']['B'])
             verifier = pkcs1_15.new(pub_key)
 
-            verifier.verify(digest, event['signature'].encore('utf-8'))
+            verifier.verify(digest, signature.encode('utf-8'))
 
             # If here, message is authentic
-            return {
-                'statusCode': 200,
-                'headers': {},
-                'body': 'Access Granted'
-            }
+            return response.BaseResponse(
+                statusCode=200,
+                headers={},
+                body='Access Granted'
+            )
 
         except KeyError:
-            logger.error(f"Unexpect Key error {api_key}")
-            return {
-                'statusCode': 500,
-                'headers': {},
-                'body': 'Internal Server Error'
-            }
+            logger.error(f"Unexpect Key error {key}")
+            return response.BaseResponse(
+                statusCode=500,
+                headers={},
+                body='Internal Server Error'
+            )
         except ValueError:
             logger.info('Signature check failed')
-            return {
-                'statusCode': 401,
-                'headers': {},
-                'body': 'Unauthorized'
-            }
+            return response.BaseResponse(
+                statusCode=401,
+                headers={},
+                body='Unauthorized'
+            )
     else:
         # API Key not found
-        logger.info(f"{api_key} not found")
-        return {
-            'statusCode': 403,
-            'headers': {},
-            'body': 'Invalid API Key'
-        }
+        logger.info(f"{key} not found")
+        return response.BaseResponse(
+            statusCode=403,
+            headers={},
+            body='Invalid API Key'
+        )
