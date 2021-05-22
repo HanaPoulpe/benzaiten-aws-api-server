@@ -9,10 +9,9 @@ import botocore.exceptions as boto_e
 import base64
 import Crypto.PublicKey.RSA
 from Crypto.Hash import SHA512
-from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import src.authorizer as authorizer
 import src.response as response
@@ -43,8 +42,10 @@ class TestIsAllowed(TestCase):
 
     ProvisionedThroughputExceededException = boto_e.ClientError(
         {'Error': {'Code': 'ProvisionedThroughputExceededException'}}, 'get_item')
-    RequestLimitExceeded = boto_e.ClientError({'Error': {'Code': 'RequestLimitExceeded'}}, 'get_item')
-    UnauthorizedOperation = boto_e.ClientError({'Error': {'Code': 'UnauthorizedOperation'}}, 'get_item')
+    RequestLimitExceeded = boto_e.ClientError({'Error': {'Code': 'RequestLimitExceeded'}}
+                                              , 'get_item')
+    UnauthorizedOperation = boto_e.ClientError({'Error': {'Code': 'UnauthorizedOperation'}}
+                                               , 'get_item')
     UnknownError = boto_e.ClientError({'Error': {'Code': 'OtherException'}}, 'get_item')
 
     valid_key = Crypto.PublicKey.RSA.generate(2048)
@@ -70,7 +71,7 @@ class TestIsAllowed(TestCase):
         headers={},
         body='Service Unavailable'
     )
-    ret_net_auth =  response.BaseResponse(
+    ret_net_auth = response.BaseResponse(
         statusCode=511,
         headers={},
         body='Network authentication required '
