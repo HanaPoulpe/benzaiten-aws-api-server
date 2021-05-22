@@ -38,7 +38,10 @@ import datetime
 import logging
 import os
 
-import response
+try:
+    import response
+except ModuleNotFoundError:
+    import src.response as response
 
 # Constants #
 DYNAMODB_TABLE = os.getenv('DYNAMODB_TABLE', 'no_table')
@@ -63,19 +66,19 @@ def is_allowed(key: str, message: str, signature: str, location: str, method: st
         format='%(asctime)s::%(levelname)s::%(filename)s.%(funcName)s(%(lineno)s)::%(message)s')
     logger = logging.getLogger()
 
-    if signature == 'earlgrey':
-        logger.info('Teapot')
-        return response.BaseResponse(
-            statusCode=418,
-            headers={},
-            body='I\'m a teapot'
-        )
     if method not in ['PUT', 'GET']:
         logger.error(f"Invalid method: {method}")
         return response.BaseResponse(
             statusCode=405,
             headers={},
             body='Method not accepted'
+        )
+    if signature == 'earlgrey':
+        logger.info('Teapot')
+        return response.BaseResponse(
+            statusCode=418,
+            headers={},
+            body='I\'m a teapot'
         )
 
     # Access API Key data
@@ -105,7 +108,7 @@ def is_allowed(key: str, message: str, signature: str, location: str, method: st
     except boto_e.ClientError as e:
         # If DynamoDB Error
         error = e.response['Error']['Code']
-        logger.error(f"Error getting api key: {error}")
+        logger.error(f"Error getting api key: {error}:{e.operation_name}")
 
         if error in ['ProvisionedThroughputExceededException',
                      'RequestLimitExceeded']:
@@ -134,15 +137,23 @@ def is_allowed(key: str, message: str, signature: str, location: str, method: st
 
             if 'expiration_date_utc' in item:
                 # Test expiration date
-                expiration_date = datetime.datetime.strptime(
-                    item['expiration_date_utc']['S'],
-                    '%Y-%d-%m %H:%M:%S'
-                )
-                if expiration_date < now:
+                try:
+                    expiration_date = datetime.datetime.strptime(
+                        item['expiration_date_utc']['S'],
+                        '%Y-%m-%d %H:%M:%S'
+                    )
+                    if expiration_date < now:
+                        return response.BaseResponse(
+                            statusCode=403,
+                            headers={},
+                            body='Expired API Key'
+                        )
+                except ValueError:
+                    logger.error(f"Invalid date: {item['expiration_date_utc']['S']}")
                     return response.BaseResponse(
-                        statusCode=403,
+                        statusCode=500,
                         headers={},
-                        body='Expired API Key'
+                        body='Internal Server Error'
                     )
 
             # Test location
@@ -166,7 +177,7 @@ def is_allowed(key: str, message: str, signature: str, location: str, method: st
             pub_key = RSA.importKey(item['pub_key']['B'])
             verifier = pkcs1_15.new(pub_key)
 
-            verifier.verify(digest, signature.encode('utf-8'))
+            verifier.verify(digest, base64.b64decode(signature.encode('utf-8')))
 
             # If here, message is authentic
             return response.BaseResponse(

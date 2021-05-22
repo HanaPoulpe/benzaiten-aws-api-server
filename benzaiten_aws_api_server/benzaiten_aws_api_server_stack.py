@@ -12,14 +12,7 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # API Gateway definition
-        api = aws_apigateway.RestApi(
-            self,
-            'benzaiten-api',
-            rest_api_name='Benzaiten API',
-            description='Benzaiten Rest API'
-        )
-
+        # Shared resources
         kms = aws_kms.Key(
             self,
             'benzaiten-kms'
@@ -37,8 +30,8 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             encryption_key=kms,
         )
 
-        # Auth lambda
-        auth_lambda_role = aws_iam.Role(
+        # API Lambda
+        api_lambda_role = aws_iam.Role(
             self,
             'benzaiten-auth-role',
             assumed_by=aws_iam.ServicePrincipal('lambda.awsamazon.com'),
@@ -78,14 +71,19 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             }
         )
 
-        auth_lambda = aws_lambda.Function(
+        api_lambda = aws_lambda.Function(
             self,
             'benzaiten-auth-lambda',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            code=aws_lambda.Code.from_asset('src/lambda/auth/'),
+            code=aws_lambda.Code.from_asset('src/'),
             handler='app.lambda_handler',
             environment_encryption=kms,
-            role=auth_lambda_role
+            role=api_lambda_role
         )
 
-        api.
+        api = aws_apigateway.LambdaRestApi(
+            self,
+            'benzaiten-rest-api',
+            handler=api_lambda,
+            rest_api_name="benzaiten_rest_api",
+        )

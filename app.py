@@ -34,10 +34,10 @@ BenzaitenAwsApiServerStack(
     #env=core.Environment(account='123456789012', region='us-east-1'),
 
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
-    tags={
-        'application': 'BenzaitenAwsAPI',
-        'name': os.getenv('CDK_APP_NAME')
-    }
+    #tags={
+    #    'application': 'BenzaitenAwsAPI',
+    #    'name': os.getenv('CDK_APP_NAME')
+    #}
     )
 
 app.synth()
