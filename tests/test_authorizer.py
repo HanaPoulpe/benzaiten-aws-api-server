@@ -13,8 +13,8 @@ from Crypto.Signature import pkcs1_15
 from unittest import TestCase
 from unittest.mock import patch
 
-import src.authorizer as authorizer
-import src.response as response
+import src.layer.benzaiten_api.authorizer as authorizer
+import src.layer.benzaiten_api.response as response
 
 
 # MockClasses #

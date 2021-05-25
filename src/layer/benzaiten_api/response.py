@@ -81,10 +81,13 @@ class BaseResponse:
         else:
             body = self.body
 
+        headers = self.headers.copy()
+        headers['Content-Type'] = "application/json"
+
         return {
             "isBase64Encoded": is_base64_encoded,
             "statusCode": self.statusCode,
-            "headers": self.headers,
+            "headers": headers,
             "body": body
         }
 

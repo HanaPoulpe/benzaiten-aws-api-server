@@ -41,7 +41,7 @@ import os
 try:
     import response
 except ModuleNotFoundError:
-    import src.response as response
+    import src.layer.benzaiten_api.response as response
 
 # Constants #
 DYNAMODB_TABLE = os.getenv('DYNAMODB_TABLE', 'no_table')

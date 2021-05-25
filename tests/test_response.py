@@ -2,7 +2,7 @@ import base64
 import json
 import unittest
 
-import src.response as response
+import src.layer.benzaiten_api.response as response
 
 
 class TestBaseResponse(unittest.TestCase):
@@ -39,6 +39,8 @@ class TestBaseResponse(unittest.TestCase):
             headers=headers,
             body=body
         )
+
+        headers['Content-Type'] = 'application/json'
 
         out = t_resp.get_response()
         self.assertDictEqual(out,
