@@ -61,9 +61,6 @@ def is_allowed(key: str, message: str, signature: str, location: str, method: st
     :return: HTTP Response
     """
 
-    # Logger
-    logging.basicConfig(
-        format='%(asctime)s::%(levelname)s::%(filename)s.%(funcName)s(%(lineno)s)::%(message)s')
     logger = logging.getLogger()
 
     if method not in ['PUT', 'GET']:

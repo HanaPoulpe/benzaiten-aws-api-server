@@ -11,7 +11,10 @@ from aws_cdk import (
     aws_kms,
     aws_iam,
     aws_dynamodb,
-    aws_lambda_python)
+    aws_lambda_python,
+    aws_route53,
+    aws_certificatemanager,
+    aws_route53_targets)
 
 
 class BenzaitenAwsApiServerStack(cdk.Stack):
@@ -39,8 +42,26 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             encryption_key=kms,
         )
 
-        # API Lambda
-        api_keys = aws_apigateway.ApiKey()
+        # Hostname
+        app_hostname = 'benzaiten.hanapoulpe.org'
+        api_hostname = 'api.' + app_hostname
+        host_zone = aws_route53.HostedZone.from_lookup(
+            self,
+            "benzaiten-app-target",
+            domain_name=app_hostname,
+        )
+        api_certificate = aws_certificatemanager.Certificate(
+            self,
+            "benzaiten-api-cert",
+            domain_name=api_hostname
+        )
+        # api_record = aws_route53.AliasRecordTargetConfig(
+        #     self,
+        #     "benzaiten-api-record",
+
+        #)
+
+        # API
         api = aws_apigateway.RestApi(
             self,
             'benzaiten-api',
@@ -56,10 +77,28 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
                 ],
                 allow_methods=['PUT', 'GET'],
                 allow_credentials=True,
-                allow_origins=['http://localhost:3000']
-            )
+                allow_origins=aws_apigateway.Cors.ALL_ORIGINS
+            ),
+        )
+        api.add_domain_name(
+            'benzaiten-api-host-options',
+            domain_name=api_hostname,
+            certificate=api_certificate,
+            endpoint_type=aws_apigateway.EndpointType.EDGE,
+            security_policy=aws_apigateway.SecurityPolicy.TLS_1_2,
+
+        )
+        api_a_record = aws_route53.ARecord(
+            self,
+            'benzaiten-api-record',
+            target=aws_route53.RecordTarget.from_alias(
+                aws_route53_targets.ApiGateway(api)
+            ),
+            zone=host_zone,
+            record_name=api_hostname
         )
 
+        # Lambdas
         api_lambda_role = aws_iam.Role(
             self,
             'benzaiten-auth-role',

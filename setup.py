@@ -20,15 +20,17 @@ setuptools.setup(
 
     install_requires=[
         # CDK Requirements
-        "aws-cdk.core>=1.105.0",
-        # "aws-cdk.aws-s3>=1.105.0",
-        "aws-cdk.aws-lambda>=1.105.0",
-        "aws-cdk.aws-lambda-python>=1.105.0"
-        "aws-cdk.aws-kms>=1.105.0",
-        "aws-cdk.aws-iam>=1.105.0",
-        "aws-cdk.aws-dynamodb>=1.105.0",
-        "aws-cdk.aws-apigateway>=1.105.0"
-        "aws-cdk.aws-synthetics>=1.105.0"
+        "aws-cdk.core>=1.106.0",
+        # "aws-cdk.aws-s3>=1.106.0",
+        "aws-cdk.aws-lambda>=1.106.0",
+        "aws-cdk.aws-lambda-python>=1.106.0"
+        "aws-cdk.aws-kms>=1.106.0",
+        "aws-cdk.aws-iam>=1.106.0",
+        "aws-cdk.aws-dynamodb>=1.106.0",
+        "aws-cdk.aws-apigateway>=1.106.0",
+        "aws-cdk.aws-synthetics>=1.106.0",
+        "aws-cdk.aws-route53>=1.106.0",
+        "aws-cdk.aws-route53-targets>=1.106.0"
         
         # Generic packages
         "boto3==1.17.70",

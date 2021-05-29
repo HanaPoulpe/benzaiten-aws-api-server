@@ -39,9 +39,7 @@ class BaseResponse:
         """
         Check is the statusCode is in the 200
 
-        Returns
-        -------
-        bool
+        @return: bool
         """
         return self.statusCode // 100 == 2
 
@@ -49,15 +47,8 @@ class BaseResponse:
         """
         Dict to return at the end of lambda function
 
-
-        Parameters
-        ----------
-        encode_base64 : bool, optional
-            Encode body str to base64
-
-        Returns
-        -------
-        dict
+        @param encode_base64 : Encode body str to base64 (default: True)
+        @return: dict
         """
         # Prepare
         logger = logging.getLogger()
@@ -95,14 +86,8 @@ class BaseResponse:
         """
         Set the body to the json string matching a dictionary
 
-        Parameters
-        ----------
-        body : dict
-            Dictionary to convert to body
-
-        Returns
-        -------
-        None
+        @param body : Dictionary to convert to body
+        @return: None
         """
         self.body = json.dumps(body)
 
