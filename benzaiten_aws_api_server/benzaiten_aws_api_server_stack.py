@@ -162,7 +162,8 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             timeout=cdk.Duration.seconds(15),
             function_name='benzaitent_api_metrics_get',
             environment={
-                'SQS_DESTINATION': 'none'
+                'SQS_DESTINATION':
+                    'https://sqs.eu-west-1.amazonaws.com/332548640021/YggdrasillMetricsInput'
             }
         )
 
