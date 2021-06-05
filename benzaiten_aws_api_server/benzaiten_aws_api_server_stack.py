@@ -144,13 +144,14 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             'benzaiten-auth-lambda-layer',
             compatible_runtimes=[aws_lambda.Runtime.PYTHON_3_8],
             entry='src/layer/benzaiten_api',
-            description="Benzaiten API commons"
+            description="Benzaiten API commons",
+            layer_version_name='benzatien_api'
         )
 
         api_metrics_put_lambda = aws_lambda_python.PythonFunction(
             self,
             'benzaiten-metrics_put-lambda',
-            entry='src/lambda/api_metrics_put',
+            entry='src/aws_lambda/api_metrics_put',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             index='put.py',
             handler='lambda_handler',
@@ -160,6 +161,9 @@ class BenzaitenAwsApiServerStack(cdk.Stack):
             memory_size=128,
             timeout=cdk.Duration.seconds(15),
             function_name='benzaitent_api_metrics_get',
+            environment={
+                'SQS_DESTINATION': 'none'
+            }
         )
 
         api_metrics = api.root.add_resource('metrics')

@@ -5,11 +5,13 @@ Structure:
 {
     location_name:str,
     metrics: [
-        metric_name: str
-        timestamp: str,
-        metric_date: %y-%d-%d %H:%M:%S,
-        metric_value: str,
-        metric_source: str
+        {
+            metric_name: str
+            time_span: str,
+            metric_date: %y-%d-%d %H:%M:%S,
+            metric_value: float,
+            metric_source: str
+        }, ...
     ]
 }
 
@@ -22,14 +24,19 @@ import base64
 import boto3
 import datetime
 import dataclasses
-import Crypto.Hash
 import json
 import logging
 import os
 import typing
 
-import authorizer
-import response
+try:
+    import authorizer
+except ModuleNotFoundError:
+    import src.layer.benzaiten_api.authorizer as authorizer
+try:
+    import response
+except ModuleNotFoundError:
+    import src.layer.benzaiten_api.response as response
 
 # Logger
 logging.basicConfig(
@@ -60,22 +67,19 @@ class Metric:
         """
         return f"{self.metric_name}@{self.location_name}#{self.time_span}"
 
-    def __eq__(self, b: object) -> bool:
-        if isinstance(b, Metric):
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Metric):
             # If b is the same a Metric
-            return (self.metric_name == b.metric_name and
-                    self.time_span == b.time_span and
-                    self.location_name == b.location_name and
-                    self.metric_date == b.metric_date)
-        elif hasattr(b, 'get') and callable(getattr(b, 'get')):
+            return (self.metric_name == other.metric_name and
+                    self.time_span == other.time_span and
+                    self.location_name == other.location_name and
+                    self.metric_date == other.metric_date)
+        elif hasattr(other, 'get') and callable(getattr(other, 'get')):
             # If b is a collection
-            try:
-                return (self.metric_name == b.get('metric_name') and
-                        self.time_span == b.get('time_span') and
-                        self.location_name == b.get('location_name') and
-                        self.metric_date == b.get('metric_date'))
-            except:
-                return False
+            return (self.metric_name == other.get('metric_name') and
+                    self.time_span == other.get('time_span') and
+                    self.location_name == other.get('location_name') and
+                    self.metric_date == other.get('metric_date'))
 
         # For any other case
         return False
@@ -91,9 +95,11 @@ class Metric:
         """
         metric_date = d['metric_date']
         if isinstance(metric_date, str):
-            metric_date = datetime.datetime.strptime(metric_date, '%Y-%m-%d %H:%M-%S')
+            metric_date = datetime.datetime.strptime(metric_date, '%Y-%m-%d %H:%M:%S')
         elif not isinstance(metric_date, datetime.datetime):
-            raise TypeError(f"metric_date should be str or datetime, got {type(metric_date)}...")
+            raise TypeError(
+                f"metric_date should be str with format %Y-%m-%d %H:%M:%S or datetime,"
+                f" got {type(metric_date)}...")
 
         if not location_name:
             location_name = d['location_name']
@@ -120,8 +126,11 @@ class Metric:
             'metric_date': self.metric_date.strftime('%Y-%m-%d %H:%M:%S'),
             'metric_value': self.metric_value,
             'metric_source': self.metric_source,
-            'msg_received_date_utc': datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            'msg_send_date_utc': datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         })
+
+    def __hash__(self):
+        return hash(f"{self.metric_date.strftime('%Y%m%d%H%M%S')}{self.metric_system_key}")
 
 
 @dataclasses.dataclass
@@ -130,11 +139,11 @@ class Request:
     api_key: str
     signature: str
     location: str
-    metrics: typing.Optional[typing.Set[Metric]]
     message: str
     headers: dict
     method: str
     host: str
+    metrics: typing.Optional[typing.Set[Metric]] = None
 
     def add(self, metric: Metric):
         """
@@ -144,7 +153,7 @@ class Request:
         @type metric: Metric
         @return: None
         """
-        if self.metrics is None:
+        if not isinstance(self.metrics, set):
             self.metrics = set()
 
         if metric in self.metrics:
@@ -154,10 +163,11 @@ class Request:
         self.metrics.add(metric)
 
 
-class EventError(RuntimeError):
+class EventError(Exception):
     """Defines an exception while parsing lambda event"""
     def __init__(self, r: response.BaseResponse):
-        super(r.body)
+        if not isinstance(r, response.BaseResponse):
+            raise TypeError(f"Invalid type, got {type(r)} instead of BaseResponse")
         self.response = r
 
 
@@ -201,7 +211,7 @@ def lambda_handler(event, context):
             'status': 'success',
             'processed': len(event.metrics)
         })
-    )
+    ).get_response()
 
 
 def parse_event(event) -> Request:
@@ -237,9 +247,9 @@ def parse_event(event) -> Request:
         ))
 
     host = event['headers']['Host']
-    headers = {k: v for k, v in event['headers'].items()}
+    headers = event['headers']
 
-    if event['queryStringParameters'] is not None:
+    if event['queryStringParameters']:
         raise EventError(response.BaseResponse(
             statusCode=response.HTTPCodes.ClientError.BAD_REQUEST,
             headers={},
@@ -289,9 +299,9 @@ def parse_event(event) -> Request:
         host=host
     )
 
-    for m in event['metrics']:
+    for m in message['metrics']:
         try:
-            resp.add(Metric.get_from_dict(m))
+            resp.add(Metric.get_from_dict(m, location_name=location))
         except (TypeError, KeyError) as e:
             m = f"Invalid metric: {m}"
             logger.error(m)
